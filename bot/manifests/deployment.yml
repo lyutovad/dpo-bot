@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dpo-bot-service
+  namespace: cad
+spec:
+  type: ClusterIP
+  selector:
+    app: dpo-bot-app
+  ports:
+  - port: 8000
+    protocol: TCP
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dpo-bot-app
+  namespace: cad
+
+spec:
+  selector:
+    matchLabels:
+      app: dpo-bot-app
+
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: dpo-bot-app
+
+    spec:
+      containers:
+      - name: dpo-bot-backend
+        image: dmz-gitlab.vavt.ru:5050/cad/dpo-bot/bot:latest
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 8000
+        env:
+        - name: POSTGRES_HOST
+          valueFrom:
+            secretKeyRef:
+              name: dpo-bot-secret
+              key: postgres_host
+        - name: POSTGRES_PORT
+          valueFrom:
+            secretKeyRef:
+              name: dpo-bot-secret
+              key: postgres_port
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: dpo-bot-secret
+              key: postgres_db
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: dpo-bot-secret
+              key: postgres_user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dpo-bot-secret 
+              key: postgres_password
+        - name: TG_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: dpo-bot-secret
+              key: tg_bot_token
+        - name: TG_SUPPORT_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: dpo-bot-secret
+              key: tg_support_bot_token
+        - name: OPERATOR_CHAT_ID
+          valueFrom:
+            secretKeyRef:
+              name: dpo-bot-secret
+              key: operator_chat_id
+        - name: SUPPORT_BOT_API_URL
+          valueFrom:
+            secretKeyRef:
+              name: dpo-bot-secret
+              key: support_bot_api_url
+      imagePullSecrets:
+        - name: gitlab-registry

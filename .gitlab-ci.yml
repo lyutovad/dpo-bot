@@ -1,0 +1,119 @@
+variables:
+  REPO_NAME: ${CI_REGISTRY}/${CI_PROJECT_PATH}
+  CONTAINER_IMAGE: ${CI_REGISTRY}/${CI_PROJECT_PATH}:${CI_BUILD_REF_NAME}_${CI_BUILD_REF}
+  CONTAINER_IMAGE_LATEST: ${CI_REGISTRY}/${CI_PROJECT_PATH}:latest
+  DOCKER_DRIVER: overlay2
+  DOCKER_OPTS: "--insecure-registry=dmz-gitlab.vavt.ru:5050"
+  NAMESPACE: "cad"
+
+stages:          # List of stages for jobs, and their order of execution
+  - bot-image-create
+  - web-image-create
+  - bot-deploy
+  - web-deploy
+
+bot-image-create:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+#  image: docker:20.10.16-dind
+  image: docker:24.0.5-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+    NEW_CONTAINER_IMAGE:  dmz-gitlab.vavt.ru:5050/cad/dpo-bot/bot:_
+    NEW_CONTAINER_IMAGE_LATEST: dmz-gitlab.vavt.ru:5050/cad/dpo-bot/bot:latest
+  services:
+    - docker:dind
+  stage: bot-image-create
+  before_script:
+    - |
+      for i in $(seq 1 30)
+      do
+             docker info && break
+             echo "!!!!!!!!! Waiting for docker to start"
+             sleep 1s
+      done
+    - echo ${CONTAINER_IMAGE}
+    - echo ${CONTAINER_IMAGE_LATEST}
+    - echo ${CI_JOB_TOKEN}
+    - echo ${CI_REGISTRY}
+    
+#    - echo "172.16.106.110 dmz-gitlab.vavt.ru" >> /etc/hosts
+#    - cat /etc/hosts
+    - echo  $CI_JOB_TOKEN | docker login -u gitlab-ci-token --password-stdin ${CI_REGISTRY}
+  script:
+    - cat /etc/hosts
+    - docker info
+    - echo $CI_JOB_TOKEN
+    - echo $CI_REGISTRY
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker build -f ./bot/Dockerfile -t ${NEW_CONTAINER_IMAGE} -t ${NEW_CONTAINER_IMAGE_LATEST} .
+    - docker push ${NEW_CONTAINER_IMAGE}
+    - docker push ${NEW_CONTAINER_IMAGE_LATEST}
+
+web-image-create:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+#  image: docker:20.10.16-dind
+  image: docker:24.0.5-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+    NEW_CONTAINER_IMAGE: dmz-gitlab.vavt.ru:5050/cad/dpo-bot/web:_
+    NEW_CONTAINER_IMAGE_LATEST: dmz-gitlab.vavt.ru:5050/cad/dpo-bot/web:latest
+  services:
+    - docker:dind
+  stage: web-image-create
+  before_script:
+    - |
+      for i in $(seq 1 30)
+      do
+             docker info && break
+             echo "!!!!!!!!! Waiting for docker to start"
+             sleep 1s
+      done
+    - echo ${CONTAINER_IMAGE}
+    - echo ${CONTAINER_IMAGE_LATEST}
+    - echo ${CI_JOB_TOKEN}
+    - echo ${CI_REGISTRY}
+#    - echo "172.16.106.110 dmz-gitlab.vavt.ru" >> /etc/hosts
+#    - cat /etc/hosts
+    - echo  $CI_JOB_TOKEN | docker login -u gitlab-ci-token --password-stdin ${CI_REGISTRY}
+  script:
+    - cat /etc/hosts
+    - docker info
+    - echo $CI_JOB_TOKEN
+    - echo $CI_REGISTRY
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker build -f ./web/Dockerfile -t ${NEW_CONTAINER_IMAGE} -t ${NEW_CONTAINER_IMAGE_LATEST} .
+    - docker push ${NEW_CONTAINER_IMAGE}
+    - docker push ${NEW_CONTAINER_IMAGE_LATEST}
+
+bot-image-deploy:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  stage: bot-deploy
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: ['']
+  script:
+    - kubectl apply -f bot/manifests/secret.yml
+    - kubectl apply -f bot/manifests/deployment.yml
+    - kubectl -n=${NAMESPACE} rollout restart deployment/dpo-bot-app
+    - kubectl -n=${NAMESPACE} rollout status -w deployment/dpo-bot-app
+
+web-image-deploy:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  stage: web-deploy
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: ['']
+  script:
+    - kubectl apply -f web/manifests/deployment.yml
+    - kubectl -n=${NAMESPACE} rollout restart deployment/dpo-web-app
+    - kubectl -n=${NAMESPACE} rollout status -w deployment/dpo-web-app

@@ -1,0 +1,9 @@
+services:
+  langchain-bot:
+    image: app/langchain
+    build:
+      dockerfile: bot/Dockerfile
+      context: .
+    env_file:
+      - ./.env
+    container_name: langchain_bot
