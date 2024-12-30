@@ -31,10 +31,10 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT")
 POSTGRES_DB = os.getenv("POSTGRES_DB")
 
-# OLLAMA_HOST= os.getenv("OLLAMA_HOST")
-OLLAMA_HOST = "http://ollama2.cad.svc.cluster.local:11434"
-# OLLAMA_MODEL=os.getenv("OLLAMA_MODEL")
-OLLAMA_MODEL='llama3.1'
+
+OLLAMA_HOST= os.getenv("OLLAMA_HOST")
+OLLAMA_MODEL=os.getenv("OLLAMA_MODEL")
+# OLLAMA_MODEL='llama3.1'
 
 CONNECTION_STRING = f"postgresql+psycopg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 OPTIMAL_SIZE_CHANK = 1000
@@ -69,11 +69,11 @@ ollama_config = {
                 "top_p": 0.2
                 }
 
-                # ВАЖНО: Вы должны предоставить полную информацию по вопросам, связанным со стоимостью обучения и конкретных программах.
-                # Если точного ответа на вопрос нет в предоставленном контексте, четко укажите на это и запросите конкретную информацию, необходимую для ответа.
-                # Предоставляйте дополнительные пояснения и комментарии, когда это уместно.
+# ВАЖНО: Вы должны предоставить полную информацию по вопросам, связанным со стоимостью обучения и конкретных программах.
+# Если точного ответа на вопрос нет в предоставленном контексте, четко укажите на это и запросите конкретную информацию, необходимую для ответа.
+# Предоставляйте дополнительные пояснения и комментарии, когда это уместно.
 
-                # Укажите конкретный раздел или программу в контексте, откуда вы взяли информацию для ответа.
+# Укажите конкретный раздел или программу в контексте, откуда вы взяли информацию для ответа.
 
 prompt_template = """Вы консультант по образовательному процессу Всероссийской Академии Внешней Торговли (ВАВТ).
 
@@ -96,14 +96,17 @@ prompt_template = """Вы консультант по образовательн
 
 collection_name="course_documents"
 
-class OllamaModel():
+class DPOBOT():
 
     def __init__(self):
-        self.ollama = ChatOllama(**ollama_config)
-        self.embeddings = OllamaEmbeddings(**ollama_config)
-        self.ollama_gen = Ollama(**ollama_config)
-        self.conn = Connection
-        self.conn.autocommit = True
+        try:
+            self.ollama = ChatOllama(**ollama_config)
+            self.embeddings = OllamaEmbeddings(**ollama_config)
+            self.ollama_gen = Ollama(**ollama_config)
+            self.conn = Connection
+            self.conn.autocommit = True
+        except Exception as e:
+            print(e)
 
 
     def _pgvector_init_(self, collection_name: str, dir_name: str, files, directory = None):
@@ -223,7 +226,7 @@ class OllamaModel():
         self.vectorstore = self.create_vector_store(split_texts, collection_name)
         print(f'Создание векторов коллекции "{collection_name}" завершено')
 
-
+    # @trace
     def ask_question(self, question, num_coll):
         print(f" Вопрос: {question}")
 
@@ -285,12 +288,12 @@ class OllamaModel():
             try:
                 docs = retriever.invoke(question)
             except Exception as e:
-                retriever = self.vectorstore.as_retriever(search_kwargs={"k": 2})
+                retriever = self.vectorstore.as_retriever(search_kwargs={"k": 10})
                 docs = retriever.invoke(question)
                 print('Ошибка!!!')
                 print(e)
             if len(docs) == 0:
-                retriever = self.vectorstore.as_retriever(search_kwargs={"k": 2})
+                retriever = self.vectorstore.as_retriever(search_kwargs={"k": 10})
                 docs = retriever.invoke(question)
                 print('as_retriever, 0')
             print(len(docs))
@@ -318,9 +321,9 @@ class OllamaModel():
             self.insert_question_to_db(question, num_coll, True)
             print(e)
             return 'Нет ответа на поставленный вопрос.'
-            
 
-ollama_model = OllamaModel()
+
+# ollama_model = OllamaModel()
 
 pre_result = """Эта коллекция содержит информацию о различных образовательных программах, включая программы MBA.
 Документы охватывают такие темы, как требования к поступлению, содержание курсов, длительность обучения, стоимость, дату начала обучения,
@@ -449,3 +452,4 @@ questions = [
 #     print(f" Вопрос: {q['question']}")
 #     ollama_model.ask_question2(q['question'], q['num_coll'])
 #     print("\n")
+

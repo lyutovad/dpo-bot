@@ -1,0 +1,9 @@
+services:
+  test_olama:
+    image: old-ollama/ollama-work:latest
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tn_test_olama
